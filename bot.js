@@ -1,23 +1,45 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 
-// URL to scrape
-const url = 'https://example.com';
+// URLs to scrape
+const urls = [
+  'http://books.toscrape.com/',
+  'http://quotes.toscrape.com/',
+  'https://www.scrapethissite.com/pages/forms/',
+];
 
-// Make a GET request to the URL
-axios.get(url)
-  .then(response => {
-    // Load the HTML response into Cheerio
-    const $ = cheerio.load(response.data);
+// Make multiple asynchronous requests to the URLs using axios
+const fetchPages = async () => {
+  const pagePromises = urls.map(async (url) => {
+    const response = await axios.get(url);
+    return response.data;
+  });
+  return Promise.all(pagePromises);
+};
 
-    // Find elements on the page using jQuery-style selectors
+// Use Puppeteer to scrape the rendered HTML for each page
+const scrapePages = async (pages) => {
+  const results = [];
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+  for (let i = 0; i < pages.length; i++) {
+    await page.setContent(pages[i]);
+    const $ = cheerio.load(await page.content());
     const title = $('title').text();
     const paragraphs = $('p').text();
+    results.push({ title, paragraphs });
+  }
+  await browser.close();
+  return results;
+};
 
-    // Do something with the scraped data
-    console.log('Title:', title);
-    console.log('Paragraphs:', paragraphs);
+// Fetch and scrape the pages, and handle any errors
+fetchPages()
+  .then(scrapePages)
+  .then((results) => {
+    console.log('Scraped results:', results);
   })
-  .catch(error => {
+  .catch((error) => {
     console.error(error);
   });
